@@ -109,7 +109,17 @@ def read_binmesh(glb,mesh_index,name_binmesh):
         data_vert = glb._glb_data[bv_vert.byteOffset : bv_vert.byteOffset + bv_vert.byteLength]
         positions = np.frombuffer(data_vert, dtype=np.float32)
         positions = np.reshape(positions, (-1, 3))
-        print('VERTEX POSITIONS:')
+        
+        # UV
+        accessor_uv = glb.accessors[prim.attributes.TEXCOORD_0]
+        num_uv = accessor_uv.count
+        type_uv = accessor_uv.type
+        print('NUM UV: '+str(num_uv))
+        print('TYPE UV: '+str(type_uv))
+        bv_uv = glb.bufferViews[accessor_uv.bufferView]
+        data_uv = glb._glb_data[bv_uv.byteOffset : bv_uv.byteOffset + bv_uv.byteLength]
+        uv_values = np.frombuffer(data_uv, dtype=np.float32)
+        uv_values = np.reshape(uv_values, (-1, 2))
         
         # Weights
         accessor_weights = glb.accessors[prim.attributes.WEIGHTS_0]
@@ -121,7 +131,6 @@ def read_binmesh(glb,mesh_index,name_binmesh):
         data_weights = glb._glb_data[bv_weights.byteOffset : bv_weights.byteOffset + bv_weights.byteLength]
         weights = np.frombuffer(data_weights, dtype=np.float32)
         weights = np.reshape(weights, (-1, 4))
-        print('VERTEX WEIGHTS:')
         
         # Joints
         accessor_joints = glb.accessors[prim.attributes.JOINTS_0]
@@ -133,7 +142,6 @@ def read_binmesh(glb,mesh_index,name_binmesh):
         data_joints = glb._glb_data[bv_joints.byteOffset : bv_joints.byteOffset + bv_joints.byteLength]
         joints = np.frombuffer(data_joints, dtype=np.ubyte)
         joints = np.reshape(joints, (-1, 4))
-        print('VERTEX JOINTS:')
         
         # Indices
         accessor = glb.accessors[prim.indices]
@@ -184,8 +192,8 @@ def read_binmesh(glb,mesh_index,name_binmesh):
             file_out.write(ctypes.c_float(1))
             file_out.write(ctypes.c_float(1))
             # TEXCOORD
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
+            file_out.write(ctypes.c_float(uv_values[i,0]))
+            file_out.write(ctypes.c_float(uv_values[i,1]))
             # WEIGHT
             file_out.write(ctypes.c_float(weights[i,0]))
             file_out.write(ctypes.c_float(weights[i,1]))
