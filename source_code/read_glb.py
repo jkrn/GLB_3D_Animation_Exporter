@@ -96,116 +96,205 @@ def slerpQuat(previousQuat, nextQuat, interpolationValue):
         return scalePreviousQuat * previousQuat + scaleNextQuat * nextQuat
 
 # READ BINMESH
-def read_binmesh(glb,mesh_index,name_binmesh):
-    for prim in glb.meshes[mesh_index].primitives:
+def read_binmesh(glb,name_binmesh):
+    
+    all_positions = []
+    all_norm_values = []
+    all_uv_values = []
+    all_weights = []
+    all_joints = []
+    all_triangles = []
+    
+    curr_part_id = 0
+    current_indices_offset = 0
+    
+    complete_num_vertices = 0
+    complete_nindices = 0
+    
+    # Iterate over all meshes
+    num_meshes = len(glb.meshes)
+    print('num_meshes = '+str(num_meshes))
+    
+    print('+++++++++++++++')
+    
+    for mesh_index in range(num_meshes):
         
-        # Position
-        accessor_vert = glb.accessors[prim.attributes.POSITION]
-        num_vertices = accessor_vert.count
-        type_vertices = accessor_vert.type
-        print('NUM POSITIONS: '+str(num_vertices))
-        print('TYPE POSITIONS: '+str(type_vertices))
-        bv_vert = glb.bufferViews[accessor_vert.bufferView]
-        data_vert = glb._glb_data[bv_vert.byteOffset : bv_vert.byteOffset + bv_vert.byteLength]
-        positions = np.frombuffer(data_vert, dtype=np.float32)
-        positions = np.reshape(positions, (-1, 3))
+        print('mesh_index = '+str(mesh_index))
         
-        # UV
-        accessor_uv = glb.accessors[prim.attributes.TEXCOORD_0]
-        num_uv = accessor_uv.count
-        type_uv = accessor_uv.type
-        print('NUM UV: '+str(num_uv))
-        print('TYPE UV: '+str(type_uv))
-        bv_uv = glb.bufferViews[accessor_uv.bufferView]
-        data_uv = glb._glb_data[bv_uv.byteOffset : bv_uv.byteOffset + bv_uv.byteLength]
-        uv_values = np.frombuffer(data_uv, dtype=np.float32)
-        uv_values = np.reshape(uv_values, (-1, 2))
-        
-        # Weights
-        accessor_weights = glb.accessors[prim.attributes.WEIGHTS_0]
-        num_weights = accessor_weights.count
-        type_weights = accessor_weights.type
-        print('NUM WEIGHTS: '+str(num_weights))
-        print('TYPE WEIGHTS: '+str(type_weights))
-        bv_weights = glb.bufferViews[accessor_weights.bufferView]
-        data_weights = glb._glb_data[bv_weights.byteOffset : bv_weights.byteOffset + bv_weights.byteLength]
-        weights = np.frombuffer(data_weights, dtype=np.float32)
-        weights = np.reshape(weights, (-1, 4))
-        
-        # Joints
-        accessor_joints = glb.accessors[prim.attributes.JOINTS_0]
-        num_joints = accessor_joints.count
-        type_joints = accessor_joints.type
-        print('NUM JOINTS: '+str(num_joints))
-        print('TYPE JOINTS: '+str(type_joints))
-        bv_joints = glb.bufferViews[accessor_joints.bufferView]
-        data_joints = glb._glb_data[bv_joints.byteOffset : bv_joints.byteOffset + bv_joints.byteLength]
-        joints = np.frombuffer(data_joints, dtype=np.ubyte)
-        joints = np.reshape(joints, (-1, 4))
-        
-        # Indices
-        accessor = glb.accessors[prim.indices]
-        nindices = accessor.count
-        bv = glb.bufferViews[accessor.bufferView]
-        data = glb._glb_data[bv.byteOffset : bv.byteOffset + bv.byteLength]
-        triangles = np.frombuffer(data, dtype=np.uint16)
-        triangles = np.reshape(triangles, (-1, 3))
-        print('NUM INDICES: '+str(nindices))
-        print('NUM TRIANGLES: '+str(int(nindices / 3)))
-
-        # Save in BINMESH file
-        file_out = open(name_binmesh, "wb")
-        
-        # 1) numIndices
-        file_out.write(ctypes.c_uint32(nindices))
-        
-        # 2) numVertices
-        file_out.write(ctypes.c_uint32(num_vertices))
-        
-        # 3) Indices Stream
-        for i in range(triangles.shape[0]):
-            file_out.write(ctypes.c_uint32(triangles[i,0]))
-            file_out.write(ctypes.c_uint32(triangles[i,2]))
-            file_out.write(ctypes.c_uint32(triangles[i,1]))
-
-        # 4) Vertices Stream
-        for i in range( num_vertices ):
-            # POSITION
-            file_out.write(ctypes.c_float(positions[i,0]))
-            file_out.write(ctypes.c_float(positions[i,1]))
-            file_out.write(ctypes.c_float(positions[i,2]))
-            # NORMAL
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            # TANGENT
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            # BINORMAL
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            file_out.write(ctypes.c_float(0))
-            # COLOR
-            file_out.write(ctypes.c_float(1))
-            file_out.write(ctypes.c_float(1))
-            file_out.write(ctypes.c_float(1))
-            file_out.write(ctypes.c_float(1))
-            # TEXCOORD
-            file_out.write(ctypes.c_float(uv_values[i,0]))
-            file_out.write(ctypes.c_float(uv_values[i,1]))
-            # WEIGHT
-            file_out.write(ctypes.c_float(weights[i,0]))
-            file_out.write(ctypes.c_float(weights[i,1]))
-            file_out.write(ctypes.c_float(weights[i,2]))
-            file_out.write(ctypes.c_float(weights[i,3]))
-            # JOINT
-            file_out.write(ctypes.c_uint32(joints[i,0]))
-            file_out.write(ctypes.c_uint32(joints[i,1]))
-            file_out.write(ctypes.c_uint32(joints[i,2]))
-            file_out.write(ctypes.c_uint32(joints[i,3]))
+        # Iterate over all primitives
+        num_primitives = len(glb.meshes[mesh_index].primitives)
+        print('num_primitives = '+str(num_primitives))
+        for prim_index in range(num_primitives):
             
-        file_out.close()
+            print('prim_index = '+str(prim_index))
+            
+            prim = glb.meshes[mesh_index].primitives[prim_index]
+            
+            # Position
+            accessor_vert = glb.accessors[prim.attributes.POSITION]
+            num_vertices = accessor_vert.count
+            type_vertices = accessor_vert.type
+            print('NUM POSITIONS: '+str(num_vertices))
+            print('TYPE POSITIONS: '+str(type_vertices))
+            bv_vert = glb.bufferViews[accessor_vert.bufferView]
+            data_vert = glb._glb_data[bv_vert.byteOffset : bv_vert.byteOffset + bv_vert.byteLength]
+            positions = np.frombuffer(data_vert, dtype=np.float32)
+            positions = np.reshape(positions, (-1, 3))
+            
+            # Normal
+            accessor_norm = glb.accessors[prim.attributes.NORMAL]
+            num_norm = accessor_norm.count
+            type_norm = accessor_norm.type
+            bv_norm = glb.bufferViews[accessor_norm.bufferView]
+            data_norm = glb._glb_data[bv_norm.byteOffset : bv_norm.byteOffset + bv_norm.byteLength]
+            norm_values = np.frombuffer(data_norm, dtype=np.float32)
+            norm_values = np.reshape(norm_values, (-1, 3))
+            
+            # UV
+            accessor_uv = glb.accessors[prim.attributes.TEXCOORD_0]
+            num_uv = accessor_uv.count
+            type_uv = accessor_uv.type
+            print('NUM UV: '+str(num_uv))
+            print('TYPE UV: '+str(type_uv))
+            bv_uv = glb.bufferViews[accessor_uv.bufferView]
+            data_uv = glb._glb_data[bv_uv.byteOffset : bv_uv.byteOffset + bv_uv.byteLength]
+            uv_values = np.frombuffer(data_uv, dtype=np.float32)
+            uv_values = np.reshape(uv_values, (-1, 2))
+            
+            # Weights
+            accessor_weights = glb.accessors[prim.attributes.WEIGHTS_0]
+            num_weights = accessor_weights.count
+            type_weights = accessor_weights.type
+            print('NUM WEIGHTS: '+str(num_weights))
+            print('TYPE WEIGHTS: '+str(type_weights))
+            bv_weights = glb.bufferViews[accessor_weights.bufferView]
+            data_weights = glb._glb_data[bv_weights.byteOffset : bv_weights.byteOffset + bv_weights.byteLength]
+            weights = np.frombuffer(data_weights, dtype=np.float32)
+            weights = np.reshape(weights, (-1, 4))
+            
+            # Joints
+            accessor_joints = glb.accessors[prim.attributes.JOINTS_0]
+            num_joints = accessor_joints.count
+            type_joints = accessor_joints.type
+            print('NUM JOINTS: '+str(num_joints))
+            print('TYPE JOINTS: '+str(type_joints))
+            bv_joints = glb.bufferViews[accessor_joints.bufferView]
+            data_joints = glb._glb_data[bv_joints.byteOffset : bv_joints.byteOffset + bv_joints.byteLength]
+            joints = np.frombuffer(data_joints, dtype=np.ubyte)
+            joints = np.reshape(joints, (-1, 4))
+            
+            # Indices
+            accessor = glb.accessors[prim.indices]
+            nindices = accessor.count
+            bv = glb.bufferViews[accessor.bufferView]
+            data = glb._glb_data[bv.byteOffset : bv.byteOffset + bv.byteLength]
+            triangles = np.frombuffer(data, dtype=np.uint16)
+            
+            # Add indices offset
+            triangles = triangles + current_indices_offset
+            
+            print('MIN Indices: '+str(min(triangles)))
+            print('MAX Indices: '+str(max(triangles)))
+            
+            complete_nindices = complete_nindices + nindices
+            complete_num_vertices = complete_num_vertices + num_vertices
+            print('complete_nindices = '+str(complete_nindices))
+            print('complete_num_vertices = '+str(complete_num_vertices))
+            
+            triangles = np.reshape(triangles, (-1, 3))
+            print('NUM INDICES: '+str(nindices))
+            print('NUM TRIANGLES: '+str(int(nindices / 3)))
+            
+            # Concatenate
+            if curr_part_id == 0:
+                all_positions = positions
+                all_norm_values = norm_values
+                all_uv_values = uv_values
+                all_weights = weights
+                all_joints = joints
+                all_triangles = triangles
+            else:
+                all_positions = np.vstack((all_positions, positions))
+                all_norm_values = np.vstack((all_norm_values,norm_values))
+                all_uv_values = np.vstack((all_uv_values,uv_values))
+                all_weights = np.vstack((all_weights,weights))
+                all_joints = np.vstack((all_joints,joints))
+                all_triangles = np.vstack((all_triangles,triangles))
+            
+            # Increase part ID
+            curr_part_id = curr_part_id + 1
+            print('curr_part_id = '+str(curr_part_id))
+            
+            # Print sizes
+            print('all_positions.shape = '+str(all_positions.shape))
+            print('all_norm_values.shape = '+str(all_norm_values.shape))
+            print('all_uv_values.shape = '+str(all_uv_values.shape))
+            print('all_weights.shape = '+str(all_weights.shape))
+            print('all_joints.shape = '+str(all_joints.shape))
+            print('all_triangles.shape = '+str(all_triangles.shape))
+            
+            # Set current Indices Offset
+            current_indices_offset = all_positions.shape[0]
+            print('current_indices_offset = '+str(current_indices_offset))
+            
+            print('---------------')
+            
+    print('+++++++++++++++')
+        
+    # Save in BINMESH file
+    file_out = open(name_binmesh, "wb")
+        
+    # 1) numIndices
+    file_out.write(ctypes.c_uint32(complete_nindices))
+        
+    # 2) numVertices
+    file_out.write(ctypes.c_uint32(complete_num_vertices))
+        
+    # 3) Indices Stream
+    for i in range(all_triangles.shape[0]):
+        file_out.write(ctypes.c_uint32(all_triangles[i,0]))
+        file_out.write(ctypes.c_uint32(all_triangles[i,2]))
+        file_out.write(ctypes.c_uint32(all_triangles[i,1]))
+
+    # 4) Vertices Stream
+    for i in range( complete_num_vertices ):
+        # POSITION
+        file_out.write(ctypes.c_float(all_positions[i,0]))
+        file_out.write(ctypes.c_float(all_positions[i,1]))
+        file_out.write(ctypes.c_float(all_positions[i,2]))
+        # NORMAL
+        file_out.write(ctypes.c_float(all_norm_values[i,0]))
+        file_out.write(ctypes.c_float(all_norm_values[i,1]))
+        file_out.write(ctypes.c_float(all_norm_values[i,2]))
+        # TANGENT
+        file_out.write(ctypes.c_float(0))
+        file_out.write(ctypes.c_float(0))
+        file_out.write(ctypes.c_float(0))
+        # BINORMAL
+        file_out.write(ctypes.c_float(0))
+        file_out.write(ctypes.c_float(0))
+        file_out.write(ctypes.c_float(0))
+        # COLOR
+        file_out.write(ctypes.c_float(1))
+        file_out.write(ctypes.c_float(1))
+        file_out.write(ctypes.c_float(1))
+        file_out.write(ctypes.c_float(1))
+        # TEXCOORD
+        file_out.write(ctypes.c_float(all_uv_values[i,0]))
+        file_out.write(ctypes.c_float(all_uv_values[i,1]))
+        # WEIGHT
+        file_out.write(ctypes.c_float(all_weights[i,0]))
+        file_out.write(ctypes.c_float(all_weights[i,1]))
+        file_out.write(ctypes.c_float(all_weights[i,2]))
+        file_out.write(ctypes.c_float(all_weights[i,3]))
+        # JOINT
+        file_out.write(ctypes.c_uint32(all_joints[i,0]))
+        file_out.write(ctypes.c_uint32(all_joints[i,1]))
+        file_out.write(ctypes.c_uint32(all_joints[i,2]))
+        file_out.write(ctypes.c_uint32(all_joints[i,3]))
+    
+    # Close file
+    file_out.close()
         
 
 # READ SKEL AND ANIM
@@ -257,8 +346,10 @@ def read_skel_anim(glb,anim_index,time_mult,read_skel,name_skel,read_anim,name_a
                 curr_joint_node = node_reference_list[curr_joint_node.parent_id]
                 curr_chain_list.append(curr_joint_node.buffer_pos_id)
 
-        print('CHAIN LIST: '+str(chain_list))
-            
+        print('CHAIN LIST: ')
+        for chain_list_idx in range(len(chain_list)):
+            print(str(chain_list_idx) + ' : ' + str(chain_list[chain_list_idx]))
+                    
         if export_txt:
             # Get skeleton structure
             file_skeleton_out = open(name_txt, "w")
@@ -489,13 +580,13 @@ print('READING GLB ...')
 # READ FILE
 glb = pygltflib.GLTF2().load(glb_filename)
 
-# Read BINMESH
-if binmesh_file_set:
-    read_binmesh(glb,0,binmesh_filename)
-
 if json_file_set:
     out_json_file = open(json_filename, "w")
     out_json_file.write(glb.gltf_to_json())
+
+# Read BINMESH
+if binmesh_file_set:
+    read_binmesh(glb,binmesh_filename)
 
 # Read animation
 read_skel_anim(glb,0,fps_blender,skel_file_set,skel_filename,anim_file_set,anim_filename,txt_file_set,txt_filename)
